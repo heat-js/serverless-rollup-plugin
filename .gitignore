@@ -1,0 +1,15 @@
+# My Files
+node_modules/
+.serverless/
+.rollup/
+yarn-error.log
+
+# OS Files
+.DS_Store*
+Icon?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.directory
+*~
