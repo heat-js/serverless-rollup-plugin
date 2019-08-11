@@ -1,9 +1,9 @@
 
-const fs = require('fs-extra');
-const path = require('path');
-const glob = require('glob');
-const _	= require('lodash');
-const Rollup = require('rollup');
+const fs		= require('fs-extra');
+const path		= require('path');
+const glob		= require('glob');
+const _			= require('lodash');
+const Rollup	= require('rollup');
 
 const SERVERLESS_FOLDER		= '.serverless'
 const BUILD_FOLDER			= '.rollup';
@@ -16,7 +16,7 @@ class ServerlessPluginRollup {
 
 		this.hooks = {
 			'before:package:createDeploymentArtifacts': this.build.bind(this),
-			'after:package:createDeploymentArtifacts': this.clean.bind(this),
+			'after:package:createDeploymentArtifacts':	this.clean.bind(this),
 		};
 	}
 
@@ -76,67 +76,68 @@ class ServerlessPluginRollup {
 	}
 
 	newFileName (filename) {
-		let newFileName = filename.split('.');
-		newFileName.pop();
-		newFileName = newFileName.join('.');
-		newFileName += '.js';
-		return newFileName;
+		const { dir, name } = path.parse(filename);
+		return path.join(dir, name + '.js');
+	}
+
+	loadRollupConfig() {
+		const { custom } = this.serverless.service
+		if(custom && custom.rollup && custom.rollup.config) {
+			const config = custom.rollup.config
+			if(_.isString(config)) {
+				const filePath = path.join(this.serverless.config.servicePath, config);
+				if (!this.serverless.utils.fileExistsSync(filePath)) {
+					throw new this.serverless.classes.Error(
+						`The webpack plugin could not find the configuration file at: ${filePath}`
+					);
+				}
+				try {
+					return require(filePath);
+				} catch (err) {
+					this.serverless.cli.log(`Could not load webpack config '${filePath}'`);
+					throw err;
+				}
+			}
+		}
+
+		return require('./rollup.config.js');
 	}
 
 	async build() {
 		this.serverless.cli.log('Compiling rollup...');
 
-		const rollupConfig = require(path.join(this.serverless.config.servicePath, 'rollup.config.js'));
+		const rollupConfig = this.loadRollupConfig()
 
-		// this.functions
 		for(let filename of this.rootFileNames) {
 			const newFileName = this.newFileName(filename);
 
 			rollupConfig.input = path.join(this.serverless.config.servicePath, filename);
 
-			// console.log(path.join(this.serverless.config.servicePath, 'rollup.config.js'));
-			// console.log(rollupConfig);
-
-
-			// console.log(path.join(this.serverless.config.servicePath, BUILD_FOLDER, filename));
-
-
 			const bundle = await Rollup.rollup(rollupConfig);
-
 			await bundle.write({
 				format: 'cjs',
 				file: path.join(this.serverless.config.servicePath, BUILD_FOLDER, newFileName),
 			});
 		}
 
-		// if (!this.originalServicePath) {
-		// 	// Save original service path and functions
-		// 	this.originalServicePath = this.serverless.config.servicePath
-		// 	// Fake service path so that serverless will know what to zip
-		// 	this.serverless.config.servicePath = path.join(this.originalServicePath, BUILD_FOLDER)
-		// }
-
-
-
-		// if (!fs.existsSync(dirname)) {
-		// 	fs.mkdirpSync(dirname)
-		// }
+		if (!this.originalServicePath) {
+			// Save original service path and functions
+			this.originalServicePath = this.serverless.config.servicePath
+			// Fake service path so that serverless will know what to zip
+			this.serverless.config.servicePath = path.join(this.originalServicePath, BUILD_FOLDER)
+		}
 	}
 
 	async moveArtifacts() {
-		console.log('111');
-
 		const { service } = this.serverless;
 
-		// await fs.copy(
-		// 	path.join(this.originalServicePath, BUILD_FOLDER, SERVERLESS_FOLDER),
-		// 	path.join(this.originalServicePath, SERVERLESS_FOLDER)
-		// );
+		await fs.copy(
+			path.join(this.originalServicePath, BUILD_FOLDER, SERVERLESS_FOLDER),
+			path.join(this.originalServicePath, SERVERLESS_FOLDER)
+		);
 
 		if (this.options.function) {
 			const fn = service.functions[this.options.function];
-			console.log(fn);
-
 			fn.package.artifact = path.join(
 				this.originalServicePath,
 				SERVERLESS_FOLDER,
@@ -145,20 +146,19 @@ class ServerlessPluginRollup {
 			return
 		}
 
-		// if (service.package.individually) {
-		// 	const functionNames = service.getAllFunctions()
-		// 	functionNames.forEach(name => {
-		// 		service.functions[name].package.artifact = path.join(
-		// 			this.originalServicePath,
-		// 			SERVERLESS_FOLDER,
-		// 			path.basename(service.functions[name].package.artifact)
-		// 		)
-		// 	})
-		// 	return
-		// }
+		if (service.package.individually) {
+			const functionNames = service.getAllFunctions()
+			functionNames.forEach(name => {
+				service.functions[name].package.artifact = path.join(
+					this.originalServicePath,
+					SERVERLESS_FOLDER,
+					path.basename(service.functions[name].package.artifact)
+				)
+			})
+			return
+		}
 
 		if(service.package.artifact) {
-			console.log(fn);
 			service.package.artifact = path.join(
 				this.originalServicePath,
 				SERVERLESS_FOLDER,
@@ -169,11 +169,10 @@ class ServerlessPluginRollup {
 
 	async clean() {
 		this.serverless.cli.log('Cleaning rollup...');
-		// this.serverless.config.servicePath = this.originalServicePath;
+		this.serverless.config.servicePath = this.originalServicePath;
 		await this.moveArtifacts();
 		fs.removeSync(path.join(this.originalServicePath, BUILD_FOLDER));
 	}
 }
-
 
 module.exports = ServerlessPluginRollup;

@@ -16,13 +16,17 @@ provider:
   region: eu-west-1
   runtime: nodejs8.10
   stage: prod
-  profile: bankr-dev
+  profile: default
+
+custom:
+  rollup:
+    config: ./src/rollup.config.js
 
 functions:
   test:
-    handler: src/lambda.default
+    handler: src/lambda.handle
     name: test
 
   test2:
-    handler: src/lambda.default
+    handler: src/lambda.handle
     name: test2
