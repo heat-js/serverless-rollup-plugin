@@ -14,7 +14,7 @@
     "coffeescript": "^2.4.1",
     "fs-extra": "^8.1.0",
     "glob": "^7.1.4",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.21",
     "rollup": "^1.19.4",
     "rollup-plugin-coffee-script": "^2.0.0",
     "rollup-plugin-commonjs": "^10.0.2",
